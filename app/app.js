@@ -1,11 +1,16 @@
 import { fetchIncidents, ack } from './api.js';
 
 const loader = document.querySelector('[data-testid="loader"]');
+const newBar = document.querySelector('[data-testid="new-bar"]');
 const empty = document.querySelector('[data-testid="empty"]');
 const list = document.querySelector('[data-testid="incident-list"]');
 
-// Acked rows, kept across the 2s re-renders so an ack sticks (R2).
+// Acked rows, kept so an ack sticks (R2).
 const ackedIds = new Set();
+// Every incident id we've already placed or queued, so we only ever add new ones.
+const seen = new Set();
+let shown = []; // incidents on screen, in a stable order that does not change under the viewer
+let pending = []; // new incidents waiting behind the "N new" bar, newest first
 let loaded = false;
 
 // R5: show each incident's time in the viewer's own zone and locale. EU locales
@@ -33,15 +38,30 @@ function rowHtml(i) {
     </li>`;
 }
 
-// R1: the API hands back the full current list, newest first — render it each poll.
-function render(incidents) {
-  loaded = true;
-  loader.hidden = true;
-  empty.hidden = incidents.length > 0;
-  list.innerHTML = incidents.map(rowHtml).join('');
+// The list holds still while it is on screen (product's decision): it is only
+// rebuilt when the viewer brings new incidents in, never under their pointer.
+function renderList() {
+  empty.hidden = shown.length > 0;
+  list.innerHTML = shown.map(rowHtml).join('');
 }
 
-// R2: Ack a row. Rows are re-rendered every 2s, so delegate the click.
+// The "N new" bar: how many incidents are waiting to come in.
+function renderBar() {
+  const n = pending.length;
+  newBar.hidden = n === 0;
+  newBar.textContent = n === 0 ? '' : `${n} new`;
+}
+
+// Click the bar: bring the waiting incidents into the list, newest at the top.
+newBar.addEventListener('click', () => {
+  if (!pending.length) return;
+  shown = [...pending, ...shown];
+  pending = [];
+  renderBar();
+  renderList();
+});
+
+// R2: Ack a row. The list holds still, so the row you click is the row you meant.
 list.addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-testid="ack"]');
   if (!btn) return;
@@ -57,10 +77,26 @@ list.addEventListener('click', async (e) => {
   }
 });
 
+// R4: still polls every 2s — but new incidents queue behind the bar instead of
+// reordering the list under the viewer.
 async function refresh() {
   try {
     const page = await fetchIncidents();
-    render(page.incidents);
+    if (!loaded) {
+      shown = page.incidents; // R1: first load shows tonight's incidents, newest first
+      page.incidents.forEach((i) => seen.add(i.id));
+      loaded = true;
+      loader.hidden = true;
+      renderList();
+      renderBar();
+      return;
+    }
+    const fresh = page.incidents.filter((i) => !seen.has(i.id));
+    if (fresh.length) {
+      fresh.forEach((i) => seen.add(i.id));
+      pending = [...fresh, ...pending]; // newest first, waiting behind the bar
+      renderBar();
+    }
   } catch (err) {
     console.error('refresh failed', err);
     if (!loaded) loader.textContent = 'Could not load incidents — retrying…';
@@ -68,4 +104,4 @@ async function refresh() {
 }
 
 await refresh(); // R3: loader shows until the first answer lands
-setInterval(refresh, 2000); // R4: keeps the board current without a reload
+setInterval(refresh, 2000);
