@@ -14,7 +14,10 @@ h1 { margin: 0; font-size: 22px; }
 .row .acked { color: #0a7d32; font-weight: 600; }
 .loader { padding: 16px 12px; color: #666; }
 .empty { padding: 16px 12px; color: #666; }
-.new-bar { display: block; width: 100%; max-width: 960px; box-sizing: border-box; margin: 0; padding: 10px 12px; border: 0; border-bottom: 1px solid #e5e5e5; background: #eef4ff; color: #0b4bd6; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+/* The bar always reserves its height; it only toggles visibility, so the list
+   below it never reflows when incidents arrive. */
+.new-bar { display: block; width: 100%; max-width: 960px; box-sizing: border-box; height: 41px; line-height: 20px; margin: 0; padding: 10px 12px; border: 0; border-bottom: 1px solid #e5e5e5; background: #eef4ff; color: #0b4bd6; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
 .new-bar:hover { background: #e2ecff; }
+.new-bar.is-empty { visibility: hidden; }
 footer { color: #777; font-size: 13px; }
 footer code { font-family: ui-monospace, monospace; }

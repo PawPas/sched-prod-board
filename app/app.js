@@ -45,11 +45,13 @@ function renderList() {
   list.innerHTML = shown.map(rowHtml).join('');
 }
 
-// The "N new" bar: how many incidents are waiting to come in.
+// The "N new" bar: how many incidents are waiting to come in. The bar always
+// holds its space (it only toggles visibility), so showing it never pushes the
+// list down under the viewer's pointer — the row you aim at stays put.
 function renderBar() {
   const n = pending.length;
-  newBar.hidden = n === 0;
   newBar.textContent = n === 0 ? '' : `${n} new`;
+  newBar.classList.toggle('is-empty', n === 0);
 }
 
 // Click the bar: bring the waiting incidents into the list, newest at the top.
